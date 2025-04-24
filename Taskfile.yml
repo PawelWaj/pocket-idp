@@ -23,6 +23,7 @@ tasks:
           -e TLS_CA_CERT \
           -e TLS_CERT_STRING \
           -e TLS_KEY_STRING \
+          -e GITHUB_TOKEN={{.GITHUB_TOKEN}}
           -v hum-5min-idp:/state \
           -v $HOME/.humctl:/root/.humctl \
           -v /var/run/docker.sock:/var/run/docker.sock \
