@@ -119,26 +119,29 @@ On Day 2, you'll learn how to use Humanitec for platform engineering and continu
 
 4. Start the local environment:
    ```bash
-   ./run-local start 0
+   ./run-local-humanitec
    ```
 
-5. Run the installation script (This sets up Kind cluster, Gitea, Backstage, etc.):
+5. Run the installation script (This sets up Kind cluster, Gitea,):
    ```bash
-   ./run-local start 1
+   ./0_kind_cluster-setup
    ```
 
-6. Configure port forwarding for all required services:
+6. Run humanitec Backstage instalation:
    ```bash
-   ./run-local port-forward
+   ./5_install-humanitec
+   ```
+7. Access Backstage at: http://localhost:7007   
+   - kubectl -n backstage port-forward svc/backstage 7007:7007 
+
+8. Cleanup 
+    ```bash
+   ./2_cleanup
    ```
 
 ### Hands-on Tasks
 
-1. Deploy the Demo Application:
-   ```bash
-   1_demo.sh
-   ```
-   This will:
+1.  This will:
    - Create a sample microservices application
    - Set up CI/CD pipelines in Gitea
    - Deploy the application through Humanitec
@@ -190,7 +193,7 @@ If you're using macOS and don't have Docker Desktop, you can use Colima:
 
 3. Start Colima:
    ```bash
-   colima start
+   colima start --cpu 4 --memory 8
    ```
 
 ## Troubleshooting
