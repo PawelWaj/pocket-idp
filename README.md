@@ -42,13 +42,17 @@ Learn how to create and deploy Kubernetes applications using Backstage Software 
    ./1_ArgoCD-deploy-script
    ```
 4. Export your kubeconfig: `task kind-export-kubeconfig-workshop`
-5. Access Backstage at: http://localhost:8080
+5. Access Backstage at: http://localhost:7007   
    - kubectl -n backstage port-forward svc/backstage-workshop 7007:7007 
 
 6. Access ArgoCD dashboard at: http://localhost:8080
    - kubectl -n argocd port-forward svc/argocd-server 8080:80 
    - Default credentials: user: `admin`, password: `password`
-    
+
+7. Cleanup 
+    ```bash
+   ./2_cleanup
+   ```
 
 ### Workshop Steps
 
