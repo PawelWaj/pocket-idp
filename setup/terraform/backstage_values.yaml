@@ -1,0 +1,68 @@
+ingress:
+  enabled: true
+  className: "nginx"
+  host: "backstage.localhost"
+  path: "/"
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+
+  tls:
+    enabled: true
+    secretName: "backstage-tls"
+
+postgresql:
+  enabled: true
+  auth:
+    database: backstage_db
+    username: backstage_user
+    password: supersecret123  # Change in production
+
+backstage:
+  appConfig:
+    app:
+      baseUrl: "https://backstage.localhost"
+    backend:
+      baseUrl: "https://backstage.localhost"
+      listen:
+        port: 7007
+      reading:  
+        allow:
+          - host: raw.githubusercontent.com
+      auth:
+        dangerouslyDisableDefaultAuthPolicy: true  # Disable backend auth enforcement
+    auth:
+      environment: development
+      providers:
+        guest: {}
+    catalog:
+      rules:
+        - allow: [Component, API, Location, Template]
+      locations:
+        - type: url
+          target: https://raw.githubusercontent.com/PawelWaj/backstage/main/catalog-info.yaml
+      builder: "local"
+      generator:
+        runIn: "local"
+      publisher:
+        type: "local"
+    techdocs:
+      builder: "local"
+      generator:
+        runIn: "local"
+      publisher:
+        type: "local"
+    integrations:  # Add GitHub integration
+      github:
+        - host: github.com
+          # Optional: Add token if repo is private; not needed for public access
+          # token: ${{ secrets.GITHUB_TOKEN }}
+  extraEnvVars:
+    - name: NODE_ENV
+      value: "development"
+  resources:
+    limits:
+      cpu: "500m"
+      memory: "1Gi"
+    requests:
+      cpu: "250m"
+      memory: "512Mi"

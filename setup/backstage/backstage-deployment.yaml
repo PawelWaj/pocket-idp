@@ -1,0 +1,133 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backstage-app-config
+  namespace: backstage
+data:
+  app-config.yaml: |
+    app:
+      baseUrl: http://backstage.localhost
+
+    backend:
+      baseUrl: http://backstage.backstage.svc.cluster.local:7007
+      listen: ":7007"
+      csp:
+        connect-src: ["'self'", "http:", "https:"]
+      database:
+        client: better-sqlite3
+        connection: ':memory:'
+
+    proxy:
+
+    auth:
+      providers:
+        guest:
+          dangerouslyAllowOutsideDevelopment: true
+
+    integrations:
+      gitea:
+        - host: 5min-idp-control-plane:30443
+          username: "5minadmin"
+          password: "5minadmin"
+
+    techdocs:
+      builder: "local"
+      generator:
+        runIn: "local"
+      publisher:
+        type: "local"
+
+    organization:
+      name: Humanitec
+
+    scaffolder:
+
+    catalog:
+      orphanStrategy: delete
+      rules:
+        - allow: [Component, System, API, Resource, Location, Template]
+      locations:
+        - type: file
+          target: catalog-info.yaml
+        - type: file
+          target: templates/node-service/template.yaml
+        - type: file
+          target: templates/5min-podinfo/template.yaml
+        - type: file
+          target: examples/org.yaml
+          rules:
+            - allow: [User, Group]
+
+    humanitec:
+      orgId: ${HUMANITEC_ORG_ID}
+      token: ${HUMANITEC_TOKEN}
+      cloudProvider: ${CLOUD_PROVIDER}
+      githubOrgId: ${GITHUB_ORG_ID}
+      humanitecUrl: ${HUMANITEC_URL}
+      humanitecApiUrl: ${HUMANITEC_API_URL}
+      humanitecApiToken: ${HUMANITEC_API_TOKEN}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backstage
+  namespace: backstage
+spec:
+  selector:
+    app: backstage
+  ports:
+  - name: http
+    port: 80
+    targetPort: 7007
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backstage
+  namespace: backstage
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backstage
+  template:
+    metadata:
+      labels:
+        app: backstage
+    spec:
+      containers:
+      - name: backstage
+        image: docker pull ghcr.io/pawelwaj/backstage-humanitex/backstage:v3
+        ports:
+        - containerPort: 7007
+        volumeMounts:
+        - name: backstage-app-config
+          mountPath: /app/app-config.yaml
+          subPath: app-config.yaml
+        env:
+        - name: NODE_ENV
+          value: "development"
+        - name: HUMANITEC_ORG_ID
+          value: "your-org-id"
+        - name: HUMANITEC_TOKEN
+          value: "your-token"
+        - name: CLOUD_PROVIDER
+          value: "your-cloud-provider"
+        - name: GITHUB_ORG_ID
+          value: "your-github-org-id"
+        - name: HUMANITEC_URL
+          value: "your-humanitec-url"
+        - name: HUMANITEC_API_URL
+          value: "your-humanitec-api-url"
+        - name: HUMANITEC_API_TOKEN
+          value: "your-humanitec-api-token"
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 7007
+          initialDelaySeconds: 30
+          periodSeconds: 10
+      volumes:
+      - name: backstage-app-config
+        configMap:
+          name: backstage-app-config

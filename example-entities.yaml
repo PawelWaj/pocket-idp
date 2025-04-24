@@ -1,0 +1,31 @@
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: sample-app
+  description: A sample application for Backstage
+  annotations:
+    github.com/project-slug: https://github.com/backstage/backstage/raw/master/docs/examples/sample-component.yaml
+spec:
+  type: service
+  lifecycle: experimental
+  owner: guest
+---
+apiVersion: backstage.io/v1alpha1
+kind: Template
+metadata:
+  name: sample-template
+  description: A template to create a simple app
+spec:
+  type: service
+  owner: guest
+  parameters:
+    - title: Name
+      type: string
+      description: Name of the app
+  steps:
+    - id: log-message
+      name: Log Message
+      action: debug:log
+      input:
+        message: "Hello, {{ parameters.name }}!"

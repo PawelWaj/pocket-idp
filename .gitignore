@@ -1,0 +1,10 @@
+kube/*
+setup/terraform/.terraform*
+setup/terraform/terraform.tfstate*
+.idea/*
+.envrc
+certs/*
+.env
+*.tar
+.env.*
+stuff

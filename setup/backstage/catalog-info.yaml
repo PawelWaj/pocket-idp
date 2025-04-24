@@ -1,0 +1,68 @@
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: sample-app
+  description: A sample application for Backstage
+  annotations:
+    backstage.io/kubernetes-id: sample-app
+spec:
+  type: service
+  lifecycle: production
+  owner: guests
+---
+apiVersion: backstage.io/v1alpha1
+kind: Template
+metadata:
+  name: sample-app-template
+  description: A template to deploy a sample app
+spec:
+  type: service
+  owner: guests
+  parameters:
+    - title: App Name
+      type: string
+      description: The name of the app to deploy
+    - title: Namespace
+      type: string
+      description: The Kubernetes namespace to deploy the app
+  steps:
+    - id: deploy-app
+      name: Deploy App
+      action: kubernetes:apply
+      input:
+        manifests:
+          - |
+            apiVersion: apps/v1
+            kind: Deployment
+            metadata:
+              name: {{ parameters.appName }}
+              namespace: {{ parameters.namespace }}
+            spec:
+              replicas: 1
+              selector:
+                matchLabels:
+                  app: {{ parameters.appName }}
+              template:
+                metadata:
+                  labels:
+                    app: {{ parameters.appName }}
+                spec:
+                  containers:
+                    - name: {{ parameters.appName }}
+                      image: nginx:latest
+                      ports:
+                        - containerPort: 80
+          - |
+            apiVersion: v1
+            kind: Service
+            metadata:
+              name: {{ parameters.appName }}
+              namespace: {{ parameters.namespace }}
+            spec:
+              selector:
+                app: {{ parameters.appName }}
+              ports:
+                - protocol: TCP
+                  port: 80
+                  targetPort: 80

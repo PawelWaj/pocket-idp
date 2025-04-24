@@ -1,0 +1,75 @@
+app:
+  baseUrl: http://localhost
+
+backend:
+  baseUrl: http://localhost:7007
+
+service:
+  type: NodePort
+
+backstage:
+  appConfig:
+    app:
+      title: Scaffolded Backstage App
+      baseUrl: http://localhost:3000
+    backend:
+      baseUrl: http://localhost:7007
+      listen:
+        port: 7007
+      database:
+        client: better-sqlite3
+        connection: ':memory:'
+    techdocs:
+      builder: 'local'
+      generator:
+        runIn: 'docker'
+      publisher:
+        type: 'local'
+    auth:
+      providers:
+        guest:
+          dangerouslyAllowOutsideDevelopment: true
+    catalog:
+      rules:
+        - allow: [Component, System, API, Resource, Location, Group, Template, User]
+      locations:
+        - type: file
+          target: /app/examples/entities.yaml  # Reverted entities.yaml
+        - type: file
+          target: /app/examples/org.yaml       # Added org.yaml
+        - type: dir
+          target: /app/examples/template       # Added template directory
+        - type: file
+          target: /app/templates/kind-deployment.yaml  # Added kind deployment template
+    scaffolder:
+      defaultAuthor: scaffolder
+      defaultOwner: scaffolder
+      defaultTemplateLocation: /app/examples/template
+    kubernetes:
+      serviceLocatorMethod:
+        type: 'multiTenant'
+      clusterLocatorMethods:
+        - type: 'config'
+          clusters:
+            - name: workshop
+              url: https://kubernetes.default.svc
+              serviceAccountToken: ${K8S_SA_TOKEN}
+              authProvider: 'serviceAccount'
+              skipTLSVerify: true
+
+  extraEnvVars:
+    - name: K8S_SA_TOKEN
+      value: ${K8S_SA_TOKEN}
+
+  extraVolumeMounts:
+    - name: templates
+      mountPath: /app/templates
+      readOnly: true
+
+  extraVolumes:
+    - name: templates
+      configMap:
+        name: backstage-templates
+
+logging:
+  level: debug

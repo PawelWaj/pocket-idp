@@ -1,0 +1,53 @@
+app:                                                                                                                     
+  baseUrl: http://localhost                                                                                              
+                                                                                                                         
+backend:                                                                                                                 
+  baseUrl: http://localhost:7007                                                                                         
+                                                                                                                         
+service:                                                                                                                 
+  type: NodePort       
+
+image:
+  repository: iocanel/backstage
+  tag: latest
+  pullPolicy: IfNotPresent                                                                                                  
+                                                                                                                         
+backstage:                                                                                                               
+  appConfig:                                                                                                             
+    app:                                                                                                                 
+      title: Scaffolded Backstage App                                                                                    
+      baseUrl: http://localhost:3000                                                                                     
+    backend:                                                                                                             
+      baseUrl: http://localhost:7007                                                                                     
+      listen:                                                                                                            
+        port: 7007                                                                                                       
+      database:                                                                                                          
+        client: better-sqlite3                                                                                           
+        connection: ':memory:'                                                                                           
+    techdocs:                                                                                                            
+      builder: 'local'                                                                                                   
+      generator:                                                                                                         
+        runIn: 'docker'                                                                                                  
+      publisher:                                                                                                         
+        type: 'local'                                                                                                    
+    auth:                                                                                                                
+      providers:                                                                                                         
+        guest:                                                                                                           
+          dangerouslyAllowOutsideDevelopment: true                                                                       
+    catalog:                                                                                                             
+      rules:                                                                                                             
+        - allow: [Component, System, API, Resource, Location, Group, Template, User ]                                    
+      locations:                                                                                                         
+        - type: file                                                                                                     
+          target: /app/examples/entities.yaml  # Reverted entities.yaml                                                       
+        - type: file                                                                                                     
+          target: /app/examples/org.yaml       # Added org.yaml                                                               
+        - type: dir                                                                                                      
+          target: /app/examples/template       # Added template directory                                                     
+    scaffolder:                                                                                                          
+      defaultAuthor: scaffolder                                                                                          
+      defaultOwner: scaffolder                                                                                           
+      defaultTemplateLocation: /app/examples/template                                                                              
+                                                                                                                         
+logging:                                                                                                                 
+  level: debug                                          

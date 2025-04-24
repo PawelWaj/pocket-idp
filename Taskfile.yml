@@ -1,0 +1,270 @@
+version: '3'
+
+dotenv: ['.env', '{{.ENV}}/.env.', '{{.HOME}}/.env']
+
+vars:
+  IMG_TAG: '{{.IMG_TAG | default "latest"}}'
+  IMG: '{{.IMG | default (printf "localhost/pocket-idp:%s" .IMG_TAG)}}'
+  PLATFORM: '{{.PLATFORM | default "linux/amd64,linux/arm64"}}'
+  CERT_DIR: '{{.CERT_DIR | default "certs"}}'
+  GITHUB_TOKEN: '{{.GITHUB_TOKEN | default (printf "%s" .GITHUB_TOKEN)}}'
+  ENV_FILE: '.env'
+
+tasks:
+  run-local-humanitec:
+    aliases: [ r, run ]
+    desc: Run the locally built image
+    deps: [ build, check-env ]
+    cmds:
+      - |
+        docker run --rm -it -h localhost/pocket-idp --name 5min-idp \
+          -e HUMANITEC_ORG \
+          -e HUMANITEC_SERVICE_USER \
+          -e TLS_CA_CERT \
+          -e TLS_CERT_STRING \
+          -e TLS_KEY_STRING \
+          -v hum-5min-idp:/state \
+          -v $HOME/.humctl:/root/.humctl \
+          -v /var/run/docker.sock:/var/run/docker.sock \
+          --network bridge \
+          {{.IMG}}
+
+  run-local:
+    aliases: [ r, run ]
+    desc: Run the locally built image
+    deps: [ build ]
+    dotenv: [ ".env" ]  # <-- Load .env file!
+    cmds:
+      - |
+        docker run --rm -it -h localhost/pocket-idp --name workshop \
+          -v /var/run/docker.sock:/var/run/docker.sock \
+          --network bridge \
+          -e GITHUB_TOKEN={{.GITHUB_TOKEN}} \
+          {{.IMG}}
+
+
+  build:
+    aliases: [ b ]
+    desc: Build the 5min-idp image
+    cmds:
+      #- docker buildx build --platform {{.PLATFORM}} -t {{.IMG}} .
+      #- podman build --platform={{.PLATFORM}} -t {{.IMG}} --format=docker .
+      # Ideally we could remove the next step, but docker on GHA doesn't support
+      # loading multi-platform builds yet
+      - docker buildx build -t {{.IMG}} --load .
+      # Using Podman in case if we don't have Docker Licence for Docker Desktop and only Docker CLI withoud buildx plugin
+      #- podman build -t {{.IMG}} --load --format=docker .
+      #- podman save -o pocketidp.tar localhost/pocket-idp:latest
+      #- docker load -i pocketidp.tar
+
+
+  check-image:
+    aliases: [ ci ]
+    desc: Check the 5min-idp image
+    cmds:
+      - docker run --rm -v {{.PWD}}:/app {{.IMG}} ./image/check.sh
+
+  kind-export-kubeconfig:
+    aliases: [ kek ]
+    desc: Export the kubeconfig for the kind cluster
+    cmds:
+      - kind export kubeconfig --name 5min-idp
+      
+  kind-export-kubeconfig-workshop:
+    aliases: [ kek ]
+    desc: Export the kubeconfig for the kind cluster
+    cmds:
+      - kind export kubeconfig --name workshop
+
+  push:
+    aliases: [ p ]
+    desc: Push the 5min-idp image
+    cmds:
+      - docker buildx build --platform {{.PLATFORM}} -t {{.IMG}} --push .
+
+  lint-init:
+    aliases: [ li ]
+    desc: Initialize tflint
+    cmds:
+      - tflint --init
+
+  lint:
+    aliases: [ l ]
+    desc: Lint terraform directory
+    deps: [ lint-init ]
+    cmds:
+      - tflint --config ../.tflint.hcl --chdir=./setup/terraform
+
+  test:
+    aliases: [ t ]
+    desc: Test the 5min-idp
+    deps: [ build, check-image, check-env ]
+    cmds:
+      - |
+        docker run --rm -i -h 5min-idp --name 5min-idp \
+          -e HUMANITEC_ORG=${HUMANITEC_ORG} \
+          -v hum-5min-idp:/state \
+          -v $HOME/.humctl:/root/.humctl \
+          -v /var/run/docker.sock:/var/run/docker.sock \
+          --network bridge \
+          {{.IMG}} ./image/test.sh
+
+  generate-certs:
+    aliases: [gc]
+    desc: Generate TLS certificates using mkcert for local development
+    cmds:
+      - |
+        # Check if mkcert is installed
+        if ! command -v mkcert &> /dev/null; then
+          echo "❌ mkcert is not installed. Please install it first:"
+          echo "  macOS: brew install mkcert"
+          echo "  Linux: apt install mkcert"
+          echo "  More info: https://github.com/FiloSottile/mkcert#installation"
+          exit 1
+        fi
+      - mkdir -p {{.CERT_DIR}}
+      - mkcert -install
+      - |
+        mkcert -cert-file {{.CERT_DIR}}/server.crt \
+               -key-file {{.CERT_DIR}}/server.key \
+               "5min-idp" \
+               "5min-idp-control-plane" \
+               "kubernetes.docker.internal" \
+               "git.localhost" \
+               "gitea.localhost" \
+               "argocd.localhost" \
+               "prometheus.localhost" \
+               "*.5min-idp" \
+               "*.5min-idp-control-plane" \
+               "*.argocd" \
+               "*.localhost" \
+               "grafana.localhost" \
+               "backstage.localhost" \
+               "localhost" \
+               "127.0.0.1" \
+               "::1"
+      - |
+        # Copy root CA for applications that need it
+        cp "$(mkcert -CAROOT)/rootCA.pem" {{.CERT_DIR}}/ca.crt
+        cp "$(mkcert -CAROOT)/rootCA.pem" {{.CERT_DIR}}/rootCA.pem
+      - echo "✅ TLS certificates generated in {{.CERT_DIR}} directory"
+
+  verify-env:
+    aliases: [ve]
+    desc: Verify all required environment variables are set
+    cmds:
+      - |
+        # First check if HUMANITEC_TOKEN is not set but can be retrieved from humctl
+        if [ -z "${HUMANITEC_TOKEN}" ] && [ -f "$HOME/.humctl" ]; then
+          export HUMANITEC_TOKEN=$(yq -r '.token' "$HOME/.humctl")
+          if [ "${HUMANITEC_TOKEN}" != "null" ] && [ -n "${HUMANITEC_TOKEN}" ]; then
+            echo "ℹ️ Using token from humctl configuration"
+          fi
+        fi
+
+        # Then proceed with regular verification
+        missing_vars=()
+        for var in {{.REQUIRED_VARS}}; do
+          if [ -z "${!var}" ]; then
+            missing_vars+=($var)
+          fi
+        done
+        if [ ${#missing_vars[@]} -ne 0 ]; then
+          echo "❌ Missing required environment variables: ${missing_vars[*]}"
+          echo "ℹ️ If HUMANITEC_TOKEN is missing, you can:"
+          echo "   1. Set it directly in your environment"
+          echo "   2. Login using 'humctl auth login'"
+          exit 1
+        fi
+        echo "✅ All required environment variables are set"
+
+  generate-env:
+    aliases: [ge]
+    desc: Generate template .env file with required variables
+    cmds:
+      - |
+        # Check for Humanitec token in humctl config if not set in environment
+        if [ -z "$HUMANITEC_TOKEN" ] && [ -f "$HOME/.humctl" ]; then
+          export HUMANITEC_TOKEN=$(yq -r '.token' "$HOME/.humctl")
+          echo "ℹ️ Using token from humctl configuration"
+        fi
+
+        # Check for required Humanitec variables
+        if [ -z "$HUMANITEC_ORG" ] || [ -z "$HUMANITEC_TOKEN" ]; then
+          echo "❌ HUMANITEC_ORG and HUMANITEC_TOKEN must be set in the environment before generating .env"
+          echo "ℹ️ If HUMANITEC_TOKEN is missing, you can:"
+          echo "   1. Set it directly in your environment"
+          echo "   2. Login using 'humctl auth login'"
+          exit 1
+        fi
+
+        if [ -f {{.ENV_FILE}} ]; then
+          echo "⚠️ {{.ENV_FILE}} already exists. Backing up to {{.ENV_FILE}}.bak"
+          cp {{.ENV_FILE}} {{.ENV_FILE}}.bak
+        fi
+
+        # Generate initial .env file with header
+        echo "# Generated environment variables for Pocket IDP" > {{.ENV_FILE}}
+        echo "# Generated on $(date)" >> {{.ENV_FILE}}
+        echo "" >> {{.ENV_FILE}}
+
+        # Add existing environment variables if they exist
+        for var in HUMANITEC_ORG HUMANITEC_TOKEN DOMAIN_NAME; do
+          if [ -n "${!var}" ]; then
+            echo "$var=${!var}" >> {{.ENV_FILE}}
+          else
+            echo "$var=" >> {{.ENV_FILE}}
+          fi
+        done
+
+        # Add Humanitec service user if it exists
+        if [ -n "$HUMANITEC_SERVICE_USER" ]; then
+          echo "HUMANITEC_SERVICE_USER=${HUMANITEC_SERVICE_USER}" >> {{.ENV_FILE}}
+        else
+          echo "HUMANITEC_SERVICE_USER=" >> {{.ENV_FILE}}
+        fi
+
+        # Add certificate paths and base64 encoded values
+        echo "" >> {{.ENV_FILE}}
+        echo "# TLS Certificate paths" >> {{.ENV_FILE}}
+        echo "CERT_DIR={{.CERT_DIR}}" >> {{.ENV_FILE}}
+        echo "TLS_CERT={{.CERT_DIR}}/server.crt" >> {{.ENV_FILE}}
+        echo "TLS_KEY={{.CERT_DIR}}/server.key" >> {{.ENV_FILE}}
+        echo "TLS_CA={{.CERT_DIR}}/ca.crt" >> {{.ENV_FILE}}
+
+        # Add base64 encoded certificates if they exist
+        if [ -f "{{.CERT_DIR}}/server.crt" ]; then
+          echo "TLS_CERT_STRING=$(cat {{.CERT_DIR}}/server.crt | base64 -w 0)" >> {{.ENV_FILE}}
+        else
+          echo "TLS_CERT_STRING=" >> {{.ENV_FILE}}
+        fi
+
+        if [ -f "{{.CERT_DIR}}/server.key" ]; then
+          echo "TLS_KEY_STRING=$(cat {{.CERT_DIR}}/server.key | base64 -w 0)" >> {{.ENV_FILE}}
+        else
+          echo "TLS_KEY_STRING=" >> {{.ENV_FILE}}
+        fi
+
+      
+        CERT_ABS_PATH=$(pwd)/{{.CERT_DIR}}
+        echo "TLS_CA_CERT=${CERT_ABS_PATH}/rootCA.pem" >> {{.ENV_FILE}}
+        
+        echo "" 
+
+        echo "✅ Template {{.ENV_FILE}} file generated"
+
+        # Remind user to generate certificates if they don't exist
+        if [ ! -f "{{.CERT_DIR}}/server.crt" ]; then
+          echo "ℹ️ Don't forget to generate TLS certificates using: task generate-certs"
+        fi
+    vars:
+      HUMANITEC_ORG:
+        sh: echo "{{.HUMANITEC_ORG}}"
+      HUMANITEC_TOKEN:
+        sh: echo "{{.HUMANITEC_TOKEN}}"
+
+  check-env:
+    internal: true
+    deps: [verify-env]
+    cmds:
+      - echo "✅ Environment check passed"

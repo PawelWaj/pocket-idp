@@ -1,0 +1,40 @@
+apiVersion: score.dev/v1b1
+metadata:
+  name: workshop-sample-app
+service:
+  ports:
+    www:
+      port: 8080
+      targetPort: 3000
+containers:
+  sample-app:
+    image: ghcr.io/score-spec/sample-score-app:latest
+    variables:
+      PORT: "3000"
+      MESSAGE: "Welcome to the Backstage Workshop!"
+      DB_DATABASE: ${resources.db.name}
+      DB_USER: ${resources.db.username}
+      DB_PASSWORD: ${resources.db.password}
+      DB_HOST: ${resources.db.host}
+      DB_PORT: ${resources.db.port}
+      REDIS_HOST: ${resources.cache.host}
+      REDIS_PORT: ${resources.cache.port}
+resources:
+  dns:
+    type: dns
+  route:
+    type: route
+    params:
+      host: ${resources.dns.host}
+      path: /
+      port: 8080
+  db:
+    type: postgres
+    params:
+      name: sample_app_db
+      username: sample_user
+      password: workshop456  # Change for production
+  cache:
+    type: redis
+    params:
+      version: "6.2"  # Redis version

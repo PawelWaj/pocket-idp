@@ -1,0 +1,50 @@
+apiVersion: score.dev/v1b1
+metadata:
+  name: backstage-workshop
+  annotations:
+    ssl-redirection: "false"
+service:
+  ports:
+    backstage:
+      port: 80
+      targetPort: 7007
+containers:
+  backstage:
+    image: ghcr.io/backstage/backstage:latest  # Official Backstage image
+    variables:
+      PORT: "7007"
+      NODE_ENV: "development"
+      POSTGRES_HOST: ${resources.db.host}
+      POSTGRES_PORT: ${resources.db.port}
+      POSTGRES_USER: ${resources.db.username}
+      POSTGRES_PASSWORD: ${resources.db.password}
+      POSTGRES_DB: ${resources.db.name}
+    resources:
+      limits:
+        cpu: "500m"
+        memory: "1Gi"
+      requests:
+        cpu: "250m"
+        memory: "512Mi"
+resources:
+  dns:
+    type: dns
+  route:
+    type: route
+    params:
+      host: ${resources.dns.host}
+      path: /
+      port: 80
+  db:
+    type: postgres
+    params:
+      name: backstage_db
+      username: backstage_user
+      password: supersecret123  # Change for production
+  ingress:
+    type: ingress
+    params:
+      host: backstage.localhost
+      service: backstage-workshop
+      servicePort: 80
+      path: /
