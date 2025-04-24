@@ -19,7 +19,7 @@ Learn how to create and deploy Kubernetes applications using Backstage Software 
 ### Prerequisites for Day 1
 
 - Create a GitHub Personal Access Token with `repo` scope
-- Clone this repository https://github.com/PawelWaj/pocket-idp-Mac.git
+- Clone this repository https://github.com/PawelWaj/pocket-idp
 - Create a `.env` file in the root directory with your GitHub token:
   ```
   GITHUB_TOKEN=your_github_token_here
