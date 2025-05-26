@@ -4,11 +4,76 @@ This workshop hands-on part is divided into two days, focusing on different aspe
 - **Day 1**: Backstage and ArgoCD Integration
 - **Day 2**: Humanitec Platform Engineering (Pocket IDP)
 
+## Getting Started
+
+### 1. Install Task (Task Runner)
+
+We provide a script to easily install Task on both macOS and WSL:
+
+```bash
+# Make the script executable
+chmod +x install-task.sh
+
+# For macOS
+./install-task.sh -p mac
+
+# For WSL
+./install-task.sh -p wsl
+```
+
+You can also specify an installation directory or version(optional):
+```bash
+# Install to a specific directory
+./install-task.sh -p mac -b ~/.local/bin
+
+# Install a specific version
+./install-task.sh -p mac -v v3.43.3
+```
+
+>⚠️ If the script fails for any reason, you can install Task manually:
+
+**macOS:**
+```bash
+brew install go-task/tap/go-task
+```
+
+**WSL/Linux:**
+```bash
+sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b ~/.local/bin
+```
+
+### 2. Automated Installation of Prerequisites
+
+Once Task is installed, you can use it to automatically install all required software based on your platform:
+
+```bash
+task
+```
+
+This command will:
+
+- Detect your platform (macOS or WSL) automatically
+- Install all required tools:
+  - **For macOS**: Docker CLI tools (docker, docker-compose, docker-buildx), Colima, kubectl, kind, mkcert, Helm, and Humanitec CLI
+  - **For WSL**: Docker CLI, kubectl, kind, mkcert, Helm, and Humanitec CLI
+- Start Colima (on macOS) if it's not already running
+- Configure Docker plugins correctly
+
+You can also explicitly install for a specific platform(optional):
+
+```bash
+# For macOS
+task install:mac
+
+# For WSL
+task install:wsl
+```
+
 ## Prerequisites for Both Days
 
+After using the automated installation process above, you'll have most prerequisites installed. Additionally, you'll need:
+
 - GitHub account with personal access token (with `repo` scope)
-- Docker and Docker Compose installed
-- kubectl installed
 - Basic understanding of Kubernetes concepts
 - Terminal/command line familiarity
 
@@ -75,20 +140,7 @@ On Day 2, you'll learn how to use Humanitec for platform engineering and continu
 
 - Complete Day 1 workshop
 - Create a free [Humanitec account](https://humanitec.com/free-trial)
-- Install additional tools:
-  ```bash
-  # macOS
-  brew install go-task mkcert
-  brew install humanitec/tap/cli
-
-  # Linux
-  sudo apt install mkcert
-  sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b ~/.local/bin
-  
-  # Install humctl (Linux/macOS)
-  curl -L "https://cli.humanitec.io/linux_x86_64" | tar xz
-  sudo mv humctl /usr/local/bin
-  ```
+- Install additional tools using our automated setup: `task install:mac` or `task install:wsl`
 - Clone the Pocket-PlatformOps repository:
   ```bash
   git clone https://github.com/PawelWaj/pocket-idp-Mac.git
@@ -174,27 +226,26 @@ This script will:
 - Remove deployed applications
 - Delete local certificates and configurations
 
-## Using Colima (For macOS Users)
+## Prerequisites (Detailed)
 
-If you're using macOS and don't have Docker Desktop, you can use Colima:
+The automated task installation will handle all of these for you, but here's a detailed list of prerequisites:
 
-1. Install Colima and Docker CLI:
-   ```bash
-   brew install colima
-   brew install docker docker-compose
-   ```
+**macOS**:
+- Docker CLI tools (docker, docker-compose, docker-buildx)
+- Colima (container runtime)
+- kubectl (Kubernetes command-line tool)
+- kind (Kubernetes in Docker)
+- mkcert (local certificate authority)
+- Helm (Kubernetes package manager)
+- Humanitec CLI (humctl)
 
-2. Configure Docker Compose as a plugin:
-   ```bash
-   mkdir -p ~/.docker/cli-plugins
-   ln -sfn $(brew --prefix)/opt/docker-compose/bin/docker-compose ~/.docker/cli-plugins/docker-compose
-   ln -sfn $(brew --prefix)/opt/docker-buildx/bin/docker-buildx ~/.docker/cli-plugins/docker-buildx
-   ```
-
-3. Start Colima:
-   ```bash
-   colima start --cpu 4 --memory 8
-   ```
+**WSL/Linux**:
+- Docker CLI
+- kubectl
+- kind
+- mkcert
+- Helm
+- Humanitec CLI (humctl)
 
 ## Troubleshooting
 
@@ -203,6 +254,7 @@ If you're using macOS and don't have Docker Desktop, you can use Colima:
 - **GitHub Token Issues**: Confirm your token has the required scopes
 - **Port Conflicts**: Check if any services are already running on required ports
 - **TLS Certificate Issues**: Re-run `task generate-certs` if you encounter certificate problems
+- **Docker Connection Issues**: On macOS, ensure Colima is running (`colima status`, if not run `colima start`)
 
 ## Support
 
