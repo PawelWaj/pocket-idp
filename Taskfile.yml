@@ -6,6 +6,13 @@ vars:
   IMG_TAG: '{{.IMG_TAG | default "latest"}}'
   IMG: '{{.IMG | default (printf "localhost/pocket-idp:%s" .IMG_TAG)}}'
   PLATFORM: '{{.PLATFORM | default "linux/amd64,linux/arm64"}}'
+  USER_PLATFORM:
+    sh: |
+      if [ -f /proc/version ] && grep -qi microsoft /proc/version; then
+        echo "wsl"
+      else
+        echo "mac"
+      fi
   CERT_DIR: '{{.CERT_DIR | default "certs"}}'
   GITHUB_TOKEN: '{{.GITHUB_TOKEN | default (printf "%s" .GITHUB_TOKEN)}}'
   ENV_FILE: '.env'
@@ -269,3 +276,290 @@ tasks:
     deps: [verify-env]
     cmds:
       - echo "✅ Environment check passed"
+
+  install:mac:
+    desc: Install required software for macOS workshop
+    cmds:
+      # Check and install Docker CLI tools first
+      - |
+        echo "Checking Docker CLI tools..."
+        if ! command -v docker >/dev/null 2>&1; then
+          echo "Installing Docker CLI..."
+          if command -v brew >/dev/null 2>&1; then
+            brew install docker
+          else
+            echo "Error: Homebrew is required to install Docker CLI."
+            echo "Please install Homebrew first: https://brew.sh/"
+            exit 1
+          fi
+        else
+          echo "✅ Docker CLI is already installed: $(docker --version)"
+        fi
+
+        # Create Docker CLI plugins directory if it doesn't exist
+        mkdir -p ~/.docker/cli-plugins
+        
+        # Check and install docker-compose plugin
+        if ! docker compose version >/dev/null 2>&1; then
+          echo "Installing Docker Compose plugin..."
+          if command -v brew >/dev/null 2>&1; then
+            brew install docker-compose
+            ln -sfn $(brew --prefix)/opt/docker-compose/bin/docker-compose ~/.docker/cli-plugins/docker-compose
+          else
+            echo "Error: Homebrew is required to install Docker Compose."
+            echo "Please install Homebrew first: https://brew.sh/"
+            exit 1
+          fi
+        else
+          echo "✅ Docker Compose plugin is already installed: $(docker compose version | head -1)"
+        fi
+        
+        # Check and install docker-buildx plugin
+        if ! docker buildx version >/dev/null 2>&1; then
+          echo "Installing Docker Buildx plugin..."
+          if command -v brew >/dev/null 2>&1; then
+            brew install docker-buildx
+            ln -sfn $(brew --prefix)/opt/docker-buildx/bin/docker-buildx ~/.docker/cli-plugins/docker-buildx
+          else
+            echo "Error: Homebrew is required to install Docker Buildx."
+            echo "Please install Homebrew first: https://brew.sh/"
+            exit 1
+          fi
+        else
+          echo "✅ Docker Buildx plugin is already installed: $(docker buildx version | head -1)"
+        fi
+
+      # Check and install Colima
+      - |
+        if ! command -v colima >/dev/null 2>&1; then
+          echo "Installing Colima..."
+          if command -v brew >/dev/null 2>&1; then
+            brew install colima
+          else
+            echo "Error: Homebrew is required to install Colima."
+            echo "Please install Homebrew first: https://brew.sh/"
+            exit 1
+          fi
+        else
+          echo "✅ Colima is already installed: $(colima version)"
+        fi
+        
+        # Check Colima status and start if not running
+        if command -v colima >/dev/null 2>&1; then
+          if ! colima status 2>/dev/null | grep -q "Running"; then
+            echo "Starting Colima..."
+            colima start --cpu 4 --memory 8 --disk 100
+          else
+            echo "✅ Colima is already running"
+          fi
+        fi
+      
+      # Check and install kubectl
+      - |
+        if ! command -v kubectl >/dev/null 2>&1; then
+          echo "Installing kubectl..."
+          if command -v brew >/dev/null 2>&1; then
+            brew install kubectl
+          else
+            echo "Error: Homebrew is required to install kubectl."
+            echo "Please install Homebrew first: https://brew.sh/"
+            exit 1
+          fi
+        else
+          echo "✅ kubectl is already installed: $(kubectl version --client --output=yaml | grep gitVersion | head -1 | awk '{print $2}')"
+        fi
+      
+      # Check and install kind
+      - |
+        if ! command -v kind >/dev/null 2>&1; then
+          echo "Installing kind..."
+          if command -v brew >/dev/null 2>&1; then
+            brew install kind
+          else
+            echo "Error: Homebrew is required to install kind."
+            echo "Please install Homebrew first: https://brew.sh/"
+            exit 1
+          fi
+        else
+          echo "✅ kind is already installed: $(kind --version)"
+        fi
+        
+      # Check and install mkcert
+      - |
+        if ! command -v mkcert >/dev/null 2>&1; then
+          echo "Installing mkcert..."
+          if command -v brew >/dev/null 2>&1; then
+            brew install mkcert
+          else
+            echo "Error: Homebrew is required to install mkcert."
+            echo "Please install Homebrew first: https://brew.sh/"
+            exit 1
+          fi
+        else
+          echo "✅ mkcert is already installed: $(mkcert -version 2>&1 | head -1)"
+        fi
+       
+      # Check and install Humanitec CLI
+      - |
+        if ! command -v humctl >/dev/null 2>&1; then
+          echo "Installing Humanitec CLI..."
+          if command -v brew >/dev/null 2>&1; then
+            brew install humanitec/tap/cli
+          else
+            echo "Error: Homebrew is required to install Humanitec CLI."
+            echo "Please install Homebrew first: https://brew.sh/"
+            exit 1
+          fi
+        else
+          echo "✅ Humanitec CLI is already installed: $(humctl version)"
+        fi
+        
+      # Check and install Helm
+      - |
+        if ! command -v helm >/dev/null 2>&1; then
+          echo "Installing Helm..."
+          if command -v brew >/dev/null 2>&1; then
+            brew install helm
+          else
+            echo "Error: Homebrew is required to install Helm."
+            echo "Please install Homebrew first: https://brew.sh/"
+            exit 1
+          fi
+        else
+          echo "✅ Helm is already installed: $(helm version --short)"
+        fi
+      
+      - echo "✅ All required software for macOS workshop has been installed!"
+    preconditions:
+      - sh: test "$(uname)" = "Darwin"
+        msg: "This task is only for macOS. Please use 'task install:wsl' for WSL."
+    silent: true
+
+  install:wsl:
+    desc: Install required software for WSL workshop
+    cmds:
+      # Check and install Docker CLI
+      - |
+        if ! command -v docker >/dev/null 2>&1; then
+          echo "Installing Docker CLI..."
+          # Update package index
+          sudo apt-get update
+          # Install prerequisites
+          sudo apt-get install -y apt-transport-https ca-certificates curl software-properties-common
+          # Add Docker's official GPG key
+          curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+          # Add Docker repository
+          sudo add-apt-repository "deb [arch=$(dpkg --print-architecture)] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+          # Install Docker CLI
+          sudo apt-get update
+          sudo apt-get install -y docker-ce-cli
+          # Add current user to docker group (to avoid using sudo with docker)
+          sudo usermod -aG docker $USER
+          echo "⚠️ You may need to log out and back in for Docker group changes to take effect."
+        else
+          echo "✅ Docker CLI is already installed: $(docker --version)"
+        fi
+      
+      # Check and install kubectl
+      - |
+        if ! command -v kubectl >/dev/null 2>&1; then
+          echo "Installing kubectl..."
+          # Download latest kubectl binary
+          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          # Make it executable
+          chmod +x kubectl
+          # Move to usr/local/bin
+          sudo mv kubectl /usr/local/bin/
+        else
+          echo "✅ kubectl is already installed: $(kubectl version --client --output=yaml | grep gitVersion | head -1 | awk '{print $2}')"
+        fi
+      
+      # Check and install kind
+      - |
+        if ! command -v kind >/dev/null 2>&1; then
+          echo "Installing kind..."
+          # Download latest kind binary
+          curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.22.0/kind-linux-amd64
+          # Make it executable
+          chmod +x ./kind
+          # Move to usr/local/bin
+          sudo mv ./kind /usr/local/bin/kind
+        else
+          echo "✅ kind is already installed: $(kind --version)"
+        fi
+        
+      # Check and install mkcert
+      - |
+        if ! command -v mkcert >/dev/null 2>&1; then
+          echo "Installing mkcert..."
+          sudo apt-get update
+          sudo apt-get install -y mkcert
+        else
+          echo "✅ mkcert is already installed"
+        fi
+        
+      # Check and install Humanitec CLI
+      - |
+        if ! command -v humctl >/dev/null 2>&1; then
+          echo "Installing Humanitec CLI..."
+          curl -L "https://cli.humanitec.io/linux_x86_64" | tar xz
+          sudo mv humctl /usr/local/bin
+        else
+          echo "✅ Humanitec CLI is already installed: $(humctl version)"
+        fi
+        
+      # Check and install Helm
+      - |
+        if ! command -v helm >/dev/null 2>&1; then
+          echo "Installing Helm..."
+          curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+        else
+          echo "✅ Helm is already installed: $(helm version --short)"
+        fi
+        
+      # Check and install Docker CLI plugins (docker-compose, docker-buildx)
+      - |
+        if command -v docker >/dev/null 2>&1; then
+          echo "Setting up Docker CLI plugins..."
+          
+          # Create Docker CLI plugins directory if it doesn't exist
+          mkdir -p ~/.docker/cli-plugins
+          
+          # Check and install docker-compose plugin
+          if ! docker compose version >/dev/null 2>&1; then
+            echo "Setting up Docker Compose plugin..."
+            
+            # Download Docker Compose plugin
+            DOCKER_COMPOSE_VERSION=$(curl -s https://api.github.com/repos/docker/compose/releases/latest | grep tag_name | cut -d '"' -f 4)
+            sudo curl -L "https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VERSION}/docker-compose-linux-x86_64" -o ~/.docker/cli-plugins/docker-compose
+            sudo chmod +x ~/.docker/cli-plugins/docker-compose
+          else
+            echo "✅ Docker Compose plugin is already installed"
+          fi
+          
+          # Check and install docker-buildx plugin
+          if ! docker buildx version >/dev/null 2>&1; then
+            echo "Setting up Docker Buildx plugin..."
+            
+            # Download Docker Buildx plugin
+            BUILDX_VERSION=$(curl -s https://api.github.com/repos/docker/buildx/releases/latest | grep tag_name | cut -d '"' -f 4)
+            sudo curl -L "https://github.com/docker/buildx/releases/download/${BUILDX_VERSION}/buildx-${BUILDX_VERSION}.linux-amd64" -o ~/.docker/cli-plugins/docker-buildx
+            sudo chmod +x ~/.docker/cli-plugins/docker-buildx
+          else
+            echo "✅ Docker Buildx plugin is already installed"
+          fi
+        else
+          echo "⚠️ Docker CLI not found. Please install Docker CLI first."
+        fi
+      
+      - echo "✅ All required software for WSL workshop has been installed!"
+    preconditions:
+      - sh: grep -qi microsoft /proc/version
+        msg: "This task is only for WSL. Please use 'task install:mac' for macOS."
+    silent: true
+
+  default:
+    desc: Install required software based on detected platform
+    cmds:
+      - task: "install:{{.USER_PLATFORM}}"
+    silent: true
