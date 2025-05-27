@@ -12,8 +12,8 @@ kubeconfig_docker=/state/kube/config-internal.yaml
 export TF_VAR_humanitec_org=$HUMANITEC_ORG
 export TF_VAR_kubeconfig=$kubeconfig_docker
 
-terraform -chdir=setup/terraform init -upgrade
-terraform -chdir=setup/terraform destroy -auto-approve
+# terraform -chdir=setup/terraform init -upgrade
+# terraform -chdir=setup/terraform destroy -auto-approve
 
 kind delete cluster -n 5min-idp
 kind delete cluster -n workshop
