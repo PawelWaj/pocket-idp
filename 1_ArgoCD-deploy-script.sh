@@ -162,10 +162,6 @@ data:
         - allow: [API,Component,User,Group,Location,Resource,System,Template]
       locations:
         - type: url
-          target: https://raw.githubusercontent.com/PawelWaj/workshop/main/catalog-info.yaml
-        - type: url
-          target: https://raw.githubusercontent.com/PawelWaj/workshop/main/template.yaml
-        - type: url
           target: https://github.com/PawelWaj/workshop/blob/main/templates/kubernetes-app-template.yaml
           rules:
             - allow: [Template]
