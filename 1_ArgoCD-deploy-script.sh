@@ -123,7 +123,7 @@ metadata:
   name: backstage-app-config
   namespace: ${BACKSTAGE_NAMESPACE}
 data:
-  app-config.yaml: |
+  app-config.production.yaml: |
     app:
       title: Backstage Workshop
       baseUrl: http://localhost:7007
@@ -147,24 +147,51 @@ data:
           - host: raw.githubusercontent.com
       logger:
         level: debug
+    auth:
+      environment: development
+      # see https://backstage.io/docs/auth/ to learn about auth providers
+      providers:
+        guest: {
+          dangerouslyAllowOutsideDevelopment: true
+        }
     
     catalog:
+      import:
+        entityFilename: catalog-info.yaml
       rules:
-        - allow: [Component, System, API, Resource, Location, Template]
+        - allow: [API,Component,User,Group,Location,Resource,System,Template]
       locations:
-        - type: url
-          target: https://raw.githubusercontent.com/PawelWaj/workshop/main/catalog-info.yaml
-        - type: url
-          target: https://raw.githubusercontent.com/PawelWaj/workshop/main/template.yaml
         - type: url
           target: https://github.com/PawelWaj/workshop/blob/main/templates/kubernetes-app-template.yaml
           rules:
             - allow: [Template]
+        # Local example data, replace this with your production config, these are intended for demo use only.
+        # File locations are relative to the backend process, typically in a deployed context, such as in a Docker container, this will be the root
+        - type: file
+          target: ./examples/entities.yaml
+
+        # Local example template
+        - type: file
+          target: ./examples/template/template.yaml
+          rules:
+            - allow: [Template]
+
+        # Local example organizational data
+        - type: file
+          target: ./examples/org.yaml
+          rules:
+            - allow: [User, Group]
     
     integrations:
       github:
         - host: github.com
           token: \${GITHUB_TOKEN}
+    techdocs:
+      builder: 'local'
+      generator:
+        runIn: 'local'
+      publisher:
+        type: 'local'
     
     argocd:
       baseUrl: http://localhost:8080
@@ -195,7 +222,7 @@ spec:
     spec:
       containers:
         - name: backstage
-          image: ghcr.io/pawelwaj/backstage/backstage-workshop:latest
+          image: ghcr.io/vipin-ng/backstage-workshop:latest
           ports:
             - containerPort: 7007
           env:
@@ -208,8 +235,8 @@ spec:
 
           volumeMounts:
             - name: app-config
-              mountPath: /app/app-config.yaml
-              subPath: app-config.yaml
+              mountPath: /app/app-config.production.yaml
+              subPath: app-config.production.yaml
           resources:
             limits:
               memory: "1Gi"
